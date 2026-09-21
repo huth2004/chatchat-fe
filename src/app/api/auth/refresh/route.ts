@@ -8,7 +8,7 @@ import {
   REFRESH_COOKIE,
   ACCESS_COOKIE,
   getSetCookieValue,
-} from "@/server/auth/backend";
+} from "@/server/auth/auth-backend";
 
 export async function POST() {
   const refreshToken = (await cookies()).get(REFRESH_COOKIE)?.value;

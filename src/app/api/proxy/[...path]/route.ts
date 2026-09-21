@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { API_URL, backendUrl, REFRESH_COOKIE } from "@/server/auth/backend";
+import { API_URL, backendUrl, REFRESH_COOKIE } from "@/server/auth/auth-backend";
 
 const PROXY_TIMEOUT_MS = 15000;
 const forwardedHeaders = ["accept", "authorization", "content-type"];

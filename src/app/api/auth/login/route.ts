@@ -7,7 +7,7 @@ import {
   ACCESS_COOKIE,
   REFRESH_COOKIE,
   getSetCookieValue,
-} from "@/server/auth/backend";
+} from "@/server/auth/auth-backend";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
