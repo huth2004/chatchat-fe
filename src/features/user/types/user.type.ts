@@ -1,8 +1,8 @@
 // Type for UI
 export type User = {
   id: string;
-  displayName: string;
-  avatar?: string;
+  username: string;
+  avatar: string | null;
 };
 
 // Type for API

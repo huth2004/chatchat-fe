@@ -4,9 +4,8 @@ export type UserRole = "admin" | "user";
 export type AuthUser = {
   id: string;
   username: string;
-  avatar?: string;
+  avatar: string | null;
   role: UserRole;
-  token: string;
 };
 
 export type RegisterUser = {
@@ -20,15 +19,18 @@ export type LoginUser = {
   password: string;
 };
 
+export type AccessTokenResponse = {
+  accessToken: string;
+};
+
 // Type for API
 export type UserRoleDTO = "admin" | "user";
 
 export type AuthUserDTO = {
   id: string;
   username: string;
-  avatar?: string;
+  avatar: string | null;
   role: UserRoleDTO;
-  token: string;
 };
 
 export type RegisterUserDTO = {

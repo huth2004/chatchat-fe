@@ -1,21 +1,17 @@
-import * as MessageTypes from "@/shared/types/message.type";
+import * as MessageTypes from "@/features/chat/types/message.type";
 
 export class MessageMapper {
   static toMessage(messageDTO: MessageTypes.MessageDTO): MessageTypes.Message {
     return {
       id: messageDTO.id,
-      conversationId: messageDTO.conversationId,
       senderId: messageDTO.senderId,
       content: messageDTO.content,
-      images: [],
-      videos: [],
-      status: "sent",
-      sentAt: messageDTO.createdAt,
+      timestamp: messageDTO.timestamp,
     };
   }
 
   static toCreateMessageDTO(
-    message: MessageTypes.Message,
+    message: MessageTypes.CreateMessage,
   ): MessageTypes.CreateMessageDTO {
     return {
       conversationId: message.conversationId,

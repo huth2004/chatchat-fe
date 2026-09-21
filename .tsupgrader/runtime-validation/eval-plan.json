@@ -1,0 +1,35 @@
+{
+  "projectType": "webapp",
+  "devServer": {
+    "command": "pnpm",
+    "args": ["dev"],
+    "url": "http://localhost:3000/"
+  },
+  "setup": [
+    {
+      "command": "pnpm",
+      "args": ["install", "--frozen-lockfile"]
+    }
+  ],
+  "assertions": [
+    {
+      "name": "tsc-no-emit",
+      "kind": "process",
+      "command": "pnpm",
+      "args": ["exec", "tsc", "--noEmit"],
+      "verificationMethod": "exit-code",
+      "expected": "0",
+      "timeoutSeconds": 180
+    },
+    {
+      "name": "dev-server-serves-home",
+      "kind": "http-probe",
+      "startCommand": "pnpm",
+      "startArgs": ["dev"],
+      "url": "http://localhost:3000/",
+      "verificationMethod": "http-status",
+      "expected": "200",
+      "timeoutSeconds": 120
+    }
+  ]
+}

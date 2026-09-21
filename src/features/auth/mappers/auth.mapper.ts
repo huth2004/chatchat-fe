@@ -1,4 +1,4 @@
-import * as AuthTypes from "../types/auth.type";
+import * as AuthTypes from "@/features/auth/types/auth.type";
 
 export class AuthMapper {
   static toAuthUser(authUserDTO: AuthTypes.AuthUserDTO): AuthTypes.AuthUser {
@@ -7,7 +7,6 @@ export class AuthMapper {
       username: authUserDTO.username,
       avatar: authUserDTO.avatar,
       role: authUserDTO.role,
-      token: authUserDTO.token,
     };
   }
 

@@ -1,7 +1,11 @@
-import * as AuthTypes from "@/shared/types/auth.type";
+import { Response } from "@/shared/core/response";
+import * as AuthTypes from "@/features/auth/types/auth.type";
 
 export interface AuthService {
-  register(registerUser: AuthTypes.RegisterUser): Promise<AuthTypes.AuthUser>;
-  login(loginUser: AuthTypes.LoginUser): Promise<AuthTypes.AuthUser>;
-  logout(): Promise<void>;
+  getCurrentUser(): Promise<Response<AuthTypes.AuthUser>>;
+  register(
+    registerUser: AuthTypes.RegisterUser,
+  ): Promise<Response<AuthTypes.AuthUser>>;
+  login(loginUser: AuthTypes.LoginUser): Promise<Response<AuthTypes.AuthUser>>;
+  logout(): Promise<Response<null>>;
 }

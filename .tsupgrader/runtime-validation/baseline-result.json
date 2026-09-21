@@ -1,0 +1,28 @@
+{
+  "planHash": "d214dec59fad861b1e9e2cf76e7cf0cde4095780be060b1c269de2b1e7ae7124",
+  "phase": "baseline",
+  "recordedAtUtc": "2026-09-19T12:12:07.6709920Z",
+  "retryCount": 0,
+  "resetBaseline": true,
+  "complete": true,
+  "result": {
+    "setupSucceeded": false,
+    "setupDurationMs": 60166,
+    "setupFailureOutput": "setup step 0 \u0027pnpm\u0027 failed (exit=, timedOut=True)\r\n",
+    "assertions": [],
+    "executions": [
+      {
+        "source": "setup[0]",
+        "resolvedExecutable": "C:\\Users\\Admin\\scoop\\apps\\nodejs-lts\\current\\bin\\pnpm.CMD",
+        "args": [
+          "install",
+          "--frozen-lockfile"
+        ],
+        "cwd": "c:\\Data\\Desktop\\chatchat\\chatchat-fe",
+        "env": {},
+        "prependPath": [],
+        "platform": "win32"
+      }
+    ]
+  }
+}
