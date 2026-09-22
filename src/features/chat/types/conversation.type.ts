@@ -8,7 +8,7 @@ export type Conversation = {
     conversationId: string;
     senderId: string;
     content: string;
-    timestamp: string;
+    createdAt: string;
   } | null;
 };
 

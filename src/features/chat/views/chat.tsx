@@ -66,6 +66,14 @@ export default function ChatView() {
                 onScroll={chat.handleMessagesScroll}
                 className="relative min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-7 sm:px-8"
               >
+                {chat.loadError && (
+                  <div
+                    role="alert"
+                    className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300"
+                  >
+                    {chat.loadError}
+                  </div>
+                )}
                 {!chat.selectedConversation ? (
                   <EmptyConversationState
                     hasConversations={chat.conversations.length > 0}
@@ -78,13 +86,25 @@ export default function ChatView() {
                     </p>
                   </div>
                 ) : (
-                  <MessageList
-                    messages={chat.messages}
-                    conversationTitle={chat.conversationForView.title}
-                    avatarUrl={chat.conversationForView.avatarUrl}
-                    partnerId={chat.selectedDirectConversation?.partnerId}
-                    onRetry={chat.retryMessage}
-                  />
+                  <>
+                    {chat.selectedDirectConversation?.isLoadingMessages && (
+                      <p className="text-center text-xs text-slate-400">
+                        {chat.messages.length ? "Đang tải tin nhắn cũ..." : "Đang tải tin nhắn..."}
+                      </p>
+                    )}
+                    <MessageList
+                      messages={chat.messages}
+                      conversationTitle={chat.conversationForView.title}
+                      avatarUrl={chat.conversationForView.avatarUrl}
+                      currentUserId={chat.user.id}
+                      onRetry={chat.retryMessage}
+                    />
+                    {/* {chat.selectedDirectConversation?.hasMore && !chat.selectedDirectConversation.isLoadingMessages && (
+                      <p className="text-center text-xs text-slate-400">
+                        Cuộn lên để tải tin nhắn cũ hơn
+                      </p>
+                    )} */}
+                  </>
                 )}
               </div>
 

@@ -5,16 +5,16 @@ type Props = {
   messages: ChatMessage[];
   conversationTitle: string;
   avatarUrl: string | null;
-  partnerId?: string;
+  currentUserId: string;
   onRetry: (message: ChatMessage) => void;
 };
 
-export function MessageList({ messages, conversationTitle, avatarUrl, partnerId, onRetry }: Props) {
+export function MessageList({ messages, conversationTitle, avatarUrl, currentUserId, onRetry }: Props) {
   return (
     <>
       <div className="mx-auto flex items-center gap-3 text-[10px] font-semibold uppercase tracking-widest text-slate-300"><span className="h-px flex-1 bg-slate-100 dark:bg-slate-800" />Hôm nay<span className="h-px flex-1 bg-slate-100 dark:bg-slate-800" /></div>
       {messages.map((item) => {
-        const isMine = !partnerId || item.senderId !== partnerId;
+        const isMine = item.senderId === currentUserId;
         return <div key={item.id} className={`flex items-end gap-2 ${isMine ? "justify-end" : "justify-start"}`}>
           {!isMine && <Avatar name={conversationTitle} avatarUrl={avatarUrl} small />}
           <div className={`flex max-w-[min(78%,460px)] flex-col ${isMine ? "items-end" : "items-start"}`}>

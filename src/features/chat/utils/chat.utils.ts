@@ -34,8 +34,8 @@ export function replacePendingMessage(
           message.senderId === sentMessage.senderId &&
           message.content === pendingMessage.content &&
           Math.abs(
-            new Date(message.timestamp).getTime() -
-              new Date(sentMessage.timestamp).getTime(),
+        new Date(message.createdAt).getTime() -
+          new Date(sentMessage.createdAt).getTime(),
           ) < 120000)),
   );
 
@@ -53,8 +53,8 @@ export function replacePendingMessage(
 export function mergeMessages(current: ChatMessage[], incoming: Message[]) {
   return deduplicateMessages([...current, ...incoming]).sort(
     (first, second) =>
-      new Date(first.timestamp).getTime() -
-      new Date(second.timestamp).getTime(),
+    new Date(first.createdAt).getTime() -
+    new Date(second.createdAt).getTime(),
   );
 }
 

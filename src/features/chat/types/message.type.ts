@@ -3,7 +3,7 @@ export type Message = {
   conversationId?: string;
   senderId: string;
   content: string;
-  timestamp: string;
+  createdAt: string;
 };
 
 export type CreateMessage = {
@@ -13,3 +13,8 @@ export type CreateMessage = {
 
 export type MessageDTO = Message;
 export type CreateMessageDTO = CreateMessage;
+
+export type MessagePageMetadata = {
+  nextCursor?: string | null;
+  hasMore: boolean;
+};

@@ -28,6 +28,17 @@ import {
   normalizeUsername,
   replacePendingMessage,
 } from "../utils/chat.utils";
+import type { MessagePageMetadata } from "../types/message.type";
+
+function readMessageMetadata(
+  metadata: Record<string, unknown> | undefined,
+): MessagePageMetadata {
+  return {
+    nextCursor:
+      typeof metadata?.nextCursor === "string" ? metadata.nextCursor : null,
+    hasMore: metadata?.hasMore === true,
+  };
+}
 
 export function useChatController() {
   const { user, isLoading } = useAuth();
@@ -51,109 +62,129 @@ export function useChatController() {
   const sendQueuesRef = useRef(new Map<string, Promise<void>>());
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
 
-  const selectedConversation = conversations.find((conversation) => conversation.id === selectedId);
+  const selectedConversation = conversations.find(
+    (conversation) => conversation.id === selectedId,
+  );
   const selectedDirectConversation = selectedConversation
     ? directConversations[selectedConversation.id]
     : undefined;
   selectedConversationIdRef.current = selectedConversation?.id ?? null;
-  const filteredConversations = useMemo(
-    () => {
-      const normalizedSearch = search.toLowerCase();
+  const filteredConversations = useMemo(() => {
+    const normalizedSearch = search.toLowerCase();
 
-      return conversations.filter((conversation) => {
-        const title = conversation.title?.trim().toLowerCase() ?? "";
-        const hasRecentMessage = conversation.lastMessage !== null;
-        const isSelected = conversation.id === selectedId;
+    return conversations.filter((conversation) => {
+      const title = conversation.title?.trim().toLowerCase() ?? "";
+      const hasRecentMessage = conversation.lastMessage !== null;
+      const isSelected = conversation.id === selectedId;
 
-        return (
-          title.includes(normalizedSearch) &&
-          (hasRecentMessage || isSelected)
-        );
-      });
-    },
-    [conversations, search, selectedId],
-  );
+      return (
+        title.includes(normalizedSearch) && (hasRecentMessage || isSelected)
+      );
+    });
+  }, [conversations, search, selectedId]);
 
-  const synchronizeConversation = useCallback(async (conversationId: string) => {
-    try {
-      const result = await chatService.getDirectConversation(conversationId);
-      if (result.status !== "success" || !result.data) return;
+  const synchronizeConversation = useCallback(
+    async (conversationId: string) => {
+      try {
+        const [conversationResult, messagesResult] = await Promise.all([
+          chatService.getConversation(conversationId),
+          chatService.getMessages(conversationId),
+        ]);
+        if (
+          conversationResult.status !== "success" ||
+          !conversationResult.data ||
+          messagesResult.status !== "success"
+        )
+          return;
+        const conversation = conversationResult.data;
+        const metadata = readMessageMetadata(messagesResult.metadata);
+        const messages = mergeMessages([], messagesResult.data ?? []);
 
-      chatSocketService.joinConversation(conversationId);
-      setDirectConversations((current) => {
-        const existing = current[conversationId];
+        chatSocketService.joinConversation(conversationId);
+        setDirectConversations((current) => {
+          return {
+            ...current,
+            [conversationId]: {
+              ...conversation,
+              messages,
+              nextCursor: metadata.nextCursor,
+              hasMore: metadata.hasMore,
+              avatarUrl: conversation.avatarUrl,
+              lastMessage: conversation.lastMessage,
+              title: conversation.title,
+            },
+          };
+        });
 
-        return {
-          ...current,
-          [conversationId]: {
-            ...result.data!,
-            messages: mergeMessages(
-              existing?.messages ?? [],
-              result.data!.messages,
-            ),
-          },
-        };
-      });
-
-      setConversations((current) => {
-        const latestMessage =
-          result.data!.messages[result.data!.messages.length - 1];
-        const existing = current.find(
-          (conversation) => conversation.id === conversationId,
-        );
-
-        const conversation: ChatConversation = {
-          ...(existing ?? {
-            id: conversationId,
-            type: "direct" as const,
-            lastMessage: null,
-            messages: [],
-          }),
-          title: result.data!.title,
-          avatarUrl: result.data!.avatarUrl,
-          lastMessage: latestMessage
-            ? {
-                id: latestMessage.id,
-                conversationId,
-                senderId: latestMessage.senderId,
-                content: latestMessage.content,
-                timestamp: latestMessage.timestamp,
-              }
-            : existing?.lastMessage ?? null,
-        };
-
-        if (existing) {
-          return current.map((item) =>
-            item.id === conversationId ? conversation : item,
+        setConversations((current) => {
+          const latestMessage = messages[messages.length - 1];
+          const existing = current.find(
+            (conversation) => conversation.id === conversationId,
           );
-        }
 
-        return [conversation, ...current];
-      });
-    } catch {
-      setLoadError("Không thể đồng bộ tin nhắn sau khi kết nối lại.");
-    }
-  }, []);
+          const conversation: ChatConversation = {
+            ...(existing ?? {
+              id: conversationId,
+              type: "direct" as const,
+              lastMessage: null,
+              messages: [],
+            }),
+            title: conversationResult.data!.title,
+            avatarUrl: conversationResult.data!.avatarUrl,
+            lastMessage: latestMessage
+              ? {
+                  id: latestMessage.id,
+                  conversationId,
+                  senderId: latestMessage.senderId,
+                  content: latestMessage.content,
+                  createdAt: latestMessage.createdAt,
+                }
+              : (existing?.lastMessage ?? null),
+          };
+
+          if (existing) {
+            return current.map((item) =>
+              item.id === conversationId ? conversation : item,
+            );
+          }
+
+          return [conversation, ...current];
+        });
+      } catch {
+        setLoadError("Không thể đồng bộ tin nhắn sau khi kết nối lại.");
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!user) return;
     setIsLoadingConversations(true);
-    void chatService.getConversations().then((result) => {
-      if (result.status !== "success" || !result.data) {
-        return;
-      }
-      const serverConversations = result.data.map((conversation) => ({ ...conversation, messages: [] }));
-      setConversations(serverConversations);
-      for (const conversation of serverConversations) {
-        chatSocketService.joinConversation(conversation.id);
-      }
-      setSelectedId((currentId) => currentId && serverConversations.some(({ id }) => id === currentId)
-        ? currentId
-        : serverConversations[0]?.id ?? null);
-    }).catch(() => {
-      setConversations([]);
-      setSelectedId(null);
-    }).finally(() => setIsLoadingConversations(false));
+    void chatService
+      .getConversations()
+      .then((result) => {
+        if (result.status !== "success" || !result.data) {
+          return;
+        }
+        const serverConversations = result.data.map((conversation) => ({
+          ...conversation,
+          messages: [],
+        }));
+        setConversations(serverConversations);
+        for (const conversation of serverConversations) {
+          chatSocketService.joinConversation(conversation.id);
+        }
+        setSelectedId((currentId) =>
+          currentId && serverConversations.some(({ id }) => id === currentId)
+            ? currentId
+            : (serverConversations[0]?.id ?? null),
+        );
+      })
+      .catch(() => {
+        setConversations([]);
+        setSelectedId(null);
+      })
+      .finally(() => setIsLoadingConversations(false));
   }, [user]);
 
   useEffect(() => {
@@ -162,53 +193,62 @@ export function useChatController() {
       return;
     }
 
-    const unsubscribe = chatSocketService.connect((incomingMessage) => {
-      const conversationId = incomingMessage.conversationId;
-      if (!conversationId) return;
+    const unsubscribe = chatSocketService.connect(
+      (incomingMessage) => {
+        const conversationId = incomingMessage.conversationId;
+        if (!conversationId) return;
 
-      setDirectConversations((current) => {
-        const direct = current[conversationId];
-        if (!direct || direct.messages.some(({ id }) => id === incomingMessage.id)) {
-          return current;
+        setDirectConversations((current) => {
+          const direct = current[conversationId];
+          if (
+            !direct ||
+            direct.messages.some(({ id }) => id === incomingMessage.id)
+          ) {
+            return current;
+          }
+
+          return {
+            ...current,
+            [conversationId]: {
+              ...direct,
+              messages: appendMessage(direct.messages, incomingMessage),
+            },
+          };
+        });
+
+        setConversations((current) =>
+          current.map((conversation) => {
+            if (
+              conversation.id !== conversationId ||
+              conversation.lastMessage?.id === incomingMessage.id
+            ) {
+              return conversation;
+            }
+
+            return {
+              ...conversation,
+              messages: appendMessage(conversation.messages, incomingMessage),
+              lastMessage: {
+                id: incomingMessage.id,
+                conversationId: conversation.id,
+                senderId: incomingMessage.senderId,
+                content: incomingMessage.content,
+                createdAt: incomingMessage.createdAt,
+              },
+            };
+          }),
+        );
+      },
+      () => {
+        const conversationId = selectedConversationIdRef.current;
+        if (conversationId) {
+          void synchronizeConversation(conversationId);
         }
-
-        return {
-          ...current,
-          [conversationId]: {
-            ...direct,
-            messages: appendMessage(direct.messages, incomingMessage),
-          },
-        };
-      });
-
-      setConversations((current) => current.map((conversation) => {
-        if (
-          conversation.id !== conversationId ||
-          conversation.lastMessage?.id === incomingMessage.id
-        ) {
-          return conversation;
-        }
-
-        return {
-          ...conversation,
-          messages: appendMessage(conversation.messages, incomingMessage),
-          lastMessage: {
-            id: incomingMessage.id,
-            conversationId: conversation.id,
-            senderId: incomingMessage.senderId,
-            content: incomingMessage.content,
-            timestamp: incomingMessage.timestamp,
-          },
-        };
-      }));
-    }, () => {
-      const conversationId = selectedConversationIdRef.current;
-      if (conversationId) {
+      },
+      (conversationId) => {
         void synchronizeConversation(conversationId);
-      }
-    }, (conversationId) => {
-      void synchronizeConversation(conversationId);
-    });
+      },
+    );
 
     return () => {
       unsubscribe();
@@ -225,16 +265,22 @@ export function useChatController() {
 
     const timer = window.setTimeout(() => {
       setIsUserSearching(true);
-      void userService.searchProfile(query)
-        .then((result) => setUserResults(
-          result.status === "success"
-            ? (result.data ?? []).filter((target) => {
-              const isSameId = user?.id != null && String(target.id) === String(user.id);
-              const isSameUsername = normalizeUsername(target.username) === normalizeUsername(user?.username);
-              return !isSameId && !isSameUsername;
-            })
-            : [],
-        ))
+      void userService
+        .searchProfile(query)
+        .then((result) =>
+          setUserResults(
+            result.status === "success"
+              ? (result.data ?? []).filter((target) => {
+                  const isSameId =
+                    user?.id != null && String(target.id) === String(user.id);
+                  const isSameUsername =
+                    normalizeUsername(target.username) ===
+                    normalizeUsername(user?.username);
+                  return !isSameId && !isSameUsername;
+                })
+              : [],
+          ),
+        )
         .catch(() => setUserResults([]))
         .finally(() => setIsUserSearching(false));
     }, 300);
@@ -245,28 +291,69 @@ export function useChatController() {
   useEffect(() => {
     if (!selectedConversation) return;
     if (selectedConversation.type !== "direct") return;
-    void chatService.getDirectConversation(selectedConversation.id).then((result) => {
-      if (result.status !== "success" || !result.data) {
-        setLoadError(result.message ?? "Không thể tải cuộc trò chuyện.");
-        return;
-      }
-      setDirectConversations((current) => ({
-        ...current,
-        [selectedConversation.id]: {
-          ...result.data!,
-          messages: mergeMessages([], result.data!.messages),
-        },
-      }));
-      setConversations((current) => current.map((conversation) =>
-        conversation.id === selectedConversation.id
-          ? {
-              ...conversation,
-              title: result.data!.title,
-              avatarUrl: result.data!.avatarUrl,
-            }
-          : conversation,
-      ));
-    }).catch(() => setLoadError("Không thể tải tin nhắn của cuộc trò chuyện."));
+    const conversationId = selectedConversation.id;
+    setLoadError("");
+    setDirectConversations((current) => ({
+      ...current,
+      [conversationId]: {
+        ...(current[conversationId] ?? selectedConversation),
+        messages: current[conversationId]?.messages ?? [],
+        isLoadingMessages: true,
+      },
+    }));
+    void Promise.all([
+      chatService.getConversation(conversationId),
+      chatService.getMessages(conversationId),
+    ])
+      .then(([conversationResult, messagesResult]) => {
+        if (
+          conversationResult.status !== "success" ||
+          !conversationResult.data ||
+          messagesResult.status !== "success"
+        ) {
+          setLoadError(
+            conversationResult.message ??
+              messagesResult.message ??
+              "Không thể tải cuộc trò chuyện.",
+          );
+          return;
+        }
+        const conversation = conversationResult.data;
+        const metadata = readMessageMetadata(messagesResult.metadata);
+        setDirectConversations((current) => ({
+          ...current,
+          [conversationId]: {
+            ...conversation,
+            messages: mergeMessages([], messagesResult.data ?? []),
+            limit: 10,
+            nextCursor: metadata.nextCursor,
+            hasMore: metadata.hasMore,
+            isLoadingMessages: false,
+          },
+        }));
+        setConversations((current) =>
+          current.map((conversation) =>
+            conversation.id === conversationId
+              ? {
+                  ...conversation,
+                  title: conversationResult.data!.title,
+                  avatarUrl: conversationResult.data!.avatarUrl,
+                }
+              : conversation,
+          ),
+        );
+      })
+      .catch(() => {
+        setLoadError("Không thể tải tin nhắn của cuộc trò chuyện.");
+        setDirectConversations((current) => ({
+          ...current,
+          [conversationId]: {
+            ...(current[conversationId] ?? selectedConversation),
+            messages: current[conversationId]?.messages ?? [],
+            isLoadingMessages: false,
+          },
+        }));
+      });
   }, [selectedConversation?.id]);
 
   const scrollMessagesToBottom = (behavior: ScrollBehavior = "smooth") => {
@@ -278,7 +365,9 @@ export function useChatController() {
 
   useEffect(() => {
     setShowScrollToBottom(false);
-    const frame = window.requestAnimationFrame(() => scrollMessagesToBottom("auto"));
+    const frame = window.requestAnimationFrame(() =>
+      scrollMessagesToBottom("auto"),
+    );
     return () => window.cancelAnimationFrame(frame);
   }, [selectedConversation?.id, selectedDirectConversation?.messages.length]);
 
@@ -288,7 +377,84 @@ export function useChatController() {
     const distanceFromBottom =
       container.scrollHeight - container.scrollTop - container.clientHeight;
     setShowScrollToBottom(distanceFromBottom > 120);
+    if (container.scrollTop < 80) {
+      void loadOlderMessages();
+    }
   };
+
+  const loadOlderMessages = useCallback(async () => {
+    const conversation = selectedConversation;
+    const directConversation = conversation
+      ? directConversations[conversation.id]
+      : undefined;
+    if (
+      !conversation ||
+      conversation.type !== "direct" ||
+      !directConversation?.hasMore ||
+      directConversation.isLoadingMessages ||
+      !directConversation.nextCursor
+    ) {
+      return;
+    }
+
+    const container = messagesContainerRef.current;
+    const previousHeight = container?.scrollHeight ?? 0;
+    const previousTop = container?.scrollTop ?? 0;
+    setDirectConversations((current) => ({
+      ...current,
+      [conversation.id]: {
+        ...current[conversation.id],
+        isLoadingMessages: true,
+      },
+    }));
+
+    try {
+      const result = await chatService.getMessages(
+        conversation.id,
+        10,
+        directConversation.nextCursor,
+      );
+      if (result.status !== "success") {
+        throw new Error(result.message ?? "Không thể tải thêm tin nhắn.");
+      }
+      const metadata = readMessageMetadata(result.metadata);
+      setDirectConversations((current) => {
+        const currentConversation = current[conversation.id];
+        if (!currentConversation) return current;
+        return {
+          ...current,
+          [conversation.id]: {
+            ...currentConversation,
+            messages: mergeMessages(
+              currentConversation.messages,
+              result.data ?? [],
+            ),
+            nextCursor: metadata.nextCursor,
+            hasMore: metadata.hasMore,
+            isLoadingMessages: false,
+          },
+        };
+      });
+      window.requestAnimationFrame(() => {
+        const nextContainer = messagesContainerRef.current;
+        if (nextContainer) {
+          nextContainer.scrollTop =
+            nextContainer.scrollHeight - previousHeight + previousTop;
+        }
+      });
+    } catch (error) {
+      setLoadError(
+        error instanceof Error ? error.message : "Không thể tải thêm tin nhắn.",
+      );
+      setDirectConversations((current) => ({
+        ...current,
+        [conversation.id]: {
+          ...current[conversation.id],
+          isLoadingMessages: false,
+        },
+      }));
+    }
+  }, [directConversations, selectedConversation]);
 
   const conversationForView: ChatConversation = selectedConversation ?? {
     id: "",
@@ -298,7 +464,8 @@ export function useChatController() {
     lastMessage: null,
     messages: [] as Message[],
   };
-  const messages = selectedDirectConversation?.messages ?? conversationForView.messages;
+  const messages =
+    selectedDirectConversation?.messages ?? conversationForView.messages;
 
   const openUserSearch = () => {
     setUserSearch("");
@@ -374,14 +541,17 @@ export function useChatController() {
     });
 
     try {
-      const result = await chatService.sendMessage(directConversationId, content);
+      const result = await chatService.sendMessage(
+        directConversationId,
+        content,
+      );
       if (result.status !== "success" || !result.data) {
         throw new Error(result.message ?? "Không thể gửi tin nhắn.");
       }
 
       const sentMessage: ChatMessage = {
         ...result.data,
-        timestamp: result.data.timestamp || new Date().toISOString(),
+        createdAt: result.data.createdAt || new Date().toISOString(),
       };
       setDirectConversations((current) => {
         const direct = current[conversationId];
@@ -414,7 +584,7 @@ export function useChatController() {
                   conversationId,
                   senderId: sentMessage.senderId,
                   content: sentMessage.content,
-                  timestamp: sentMessage.timestamp,
+                  createdAt: sentMessage.createdAt,
                 },
               }
             : conversation,
@@ -478,7 +648,7 @@ export function useChatController() {
       conversationId: selectedConversation.id,
       senderId: user.id,
       content,
-      timestamp: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
       sendStatus: "sending",
     };
     setDirectConversations((current) => {
@@ -503,7 +673,7 @@ export function useChatController() {
                 conversationId: conversation.id,
                 senderId: pendingMessage.senderId,
                 content: pendingMessage.content,
-                timestamp: pendingMessage.timestamp,
+                createdAt: pendingMessage.createdAt,
               },
             }
           : conversation,
@@ -519,7 +689,9 @@ export function useChatController() {
   };
 
   const openConversation = (target: Conversation) => {
-    const existing = conversations.find((conversation) => conversation.id === target.id);
+    const existing = conversations.find(
+      (conversation) => conversation.id === target.id,
+    );
     if (existing) {
       setSelectedId(existing.id);
       setSearch("");
@@ -539,7 +711,7 @@ export function useChatController() {
     setIsCreatingConversation(true);
     setLoadError("");
     try {
-      const result = await chatService.createDirectConversation(target.id);
+      const result = await chatService.createConversation([target.id]);
       if (result.status !== "success" || !result.data) {
         setLoadError(result.message ?? "Không thể tạo cuộc trò chuyện.");
         return;
@@ -597,6 +769,7 @@ export function useChatController() {
     showScrollToBottom,
     scrollMessagesToBottom,
     handleMessagesScroll,
+    loadOlderMessages,
     openUserSearch,
     retryMessage,
     sendMessage,

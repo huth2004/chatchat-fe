@@ -4,9 +4,10 @@ export class MessageMapper {
   static toMessage(messageDTO: MessageTypes.MessageDTO): MessageTypes.Message {
     return {
       id: messageDTO.id,
+      conversationId: messageDTO.conversationId,
       senderId: messageDTO.senderId,
       content: messageDTO.content,
-      timestamp: messageDTO.timestamp,
+      createdAt: messageDTO.createdAt,
     };
   }
 

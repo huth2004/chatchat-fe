@@ -33,7 +33,7 @@ export function ConversationList({ conversations, selectedId, search, username, 
               <span className="block truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{conversation.title || "Người dùng"}</span>
               <span className="block truncate text-xs text-slate-400">{conversation.lastMessage?.content || "Chưa có tin nhắn"}</span>
             </span>
-            <span className="shrink-0 self-center text-[10px] font-medium text-slate-400" title={conversation.lastMessage?.timestamp ?? undefined}>{formatConversationTime(conversation.lastMessage?.timestamp)}</span>
+            <span className="shrink-0 self-center text-[10px] font-medium text-slate-400" title={conversation.lastMessage?.createdAt ?? undefined}>{formatConversationTime(conversation.lastMessage?.createdAt)}</span>
             {conversation.unread && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-indigo-600 px-1 text-[10px] font-bold text-white">{conversation.unread}</span>}
           </button>
         ))}

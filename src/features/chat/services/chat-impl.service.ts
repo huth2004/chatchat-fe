@@ -3,7 +3,6 @@ import { apiRequest } from "@/shared/utils/api-client";
 import { Response } from "@/shared/core/response";
 import * as ConversationTypes from "@/features/chat/types/conversation.type";
 import * as MessageTypes from "@/features/chat/types/message.type";
-import * as DirectConversationTypes from "@/features/chat/types/direct-conversation.type";
 
 class ChatImplService implements ChatService {
   getConversations(): Promise<Response<ConversationTypes.Conversation[]>> {
@@ -18,35 +17,45 @@ class ChatImplService implements ChatService {
     );
   }
 
-  getDirectConversation(
-    conversationId: string,
-  ): Promise<Response<DirectConversationTypes.DirectConversation>> {
-    return apiRequest<DirectConversationTypes.DirectConversation>(
-      `/chat/conversations/direct/${encodeURIComponent(conversationId)}`,
-    );
+  createConversation(otherUserIds: string[]): Promise<Response<string>> {
+    return apiRequest<string>(`/chat/conversations`, {
+      method: "POST",
+      body: JSON.stringify({ otherUserIds }),
+    });
   }
 
-  createDirectConversation(partnerId: string): Promise<Response<string>> {
-    return apiRequest<string>(`/chat/conversations/direct`, {
-      method: "POST",
-      body: JSON.stringify({ partnerId }),
-    });
+  getMessages(
+    conversationId: string,
+    limit?: number,
+    cursor?: string,
+  ): Promise<Response<MessageTypes.Message[]>> {
+    const queryParams = new URLSearchParams();
+    if (limit) queryParams.append("limit", limit.toString());
+    if (cursor) queryParams.append("cursor", cursor);
+    return apiRequest<MessageTypes.Message[]>(
+      `/chat/messages/${encodeURIComponent(conversationId)}?${queryParams.toString()}`,
+    );
   }
 
   sendMessage(
     conversationId: string,
     content: string,
   ): Promise<Response<MessageTypes.Message>> {
-    // return new Promise((resolve) => {
-    //   setTimeout(() => {
-    //     resolve({
-    //       status: "error",
-    //       message: "Server is disconnected",
-    //     });
-    //   }, 1000);
-    // });
+    const randomNumber1 = Math.floor(Math.random() * 1000);
+    const randomNumber2 = Math.floor(Math.random() * 1000);
 
-    return apiRequest<MessageTypes.Message>(`/chat/conversations`, {
+    // if (randomNumber1 > randomNumber2) {
+    //   return new Promise((resolve) => {
+    //     setTimeout(() => {
+    //       resolve({
+    //         status: "error",
+    //         message: "Server is disconnected",
+    //       });
+    //     }, 1000);
+    //   });
+    // }
+
+    return apiRequest<MessageTypes.Message>(`/chat/messages`, {
       method: "POST",
       body: JSON.stringify({ conversationId, content }),
     });

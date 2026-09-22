@@ -5,5 +5,8 @@ export type {
   Conversation as Conversation,
   ConversationDetails,
 } from "./types/conversation.type";
-export type { Message, CreateMessage } from "./types/message.type";
-export type { DirectConversation } from "./types/direct-conversation.type";
+export type {
+  Message,
+  CreateMessage,
+  MessagePageMetadata,
+} from "./types/message.type";
